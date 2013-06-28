@@ -5,22 +5,52 @@ module SAXMachine
     base.extend ClassMethods
   end
 
-  def parse(thing, options = {})
-    if options[:lazy]
-      require 'fiber'
-      @parser = Fiber.new do
-        Nokogiri::XML::SAX::Parser.new( SAXHandler.new(self) ).parse(thing)
+  def parse(xml)
+    sax_handler = SAXHandler.new(self)
+    parser = Nokogiri::XML::SAX::Parser.new(sax_handler)
+
+    Thread.new do
+      begin
+        parser.parse(xml)
+      rescue => ex
+        lazy_queue << {exception: ex}
+      ensure
+        lazy_queue << nil
       end
-    else
-      Nokogiri::XML::SAX::Parser.new( SAXHandler.new(self) ).parse(thing)
     end
+
     self
+  end
+
+  def parse_file(filename)
+    sax_handler = SAXHandler.new(self)
+    parser = Nokogiri::XML::SAX::Parser.new(sax_handler)
+
+    Thread.new do
+      begin
+        parser.parse_file(filename)
+      rescue => ex
+        lazy_queue << {exception: ex}
+      ensure
+        lazy_queue << nil
+      end
+    end
+
+    self
+  end
+
+  def lazy_queue
+   @lazy_queue ||= SizedQueue.new(1)
   end
 
   module ClassMethods
 
     def parse(*args)
       new.parse(*args)
+    end
+
+    def parse_file(*args)
+      new.parse_file(*args)
     end
 
     def element(name, options = {})
@@ -79,34 +109,35 @@ module SAXMachine
         sax_config.add_top_level_element(name, options.merge(:collection => true))
       end
 
-      unless options[:lazy]
+      if options[:lazy]
+        class_eval <<-SRC
+          def add_#{options[:as]}(value)
+            lazy_queue << {value: value}
+          end
+        SRC
+      else
         class_eval <<-SRC
           def add_#{options[:as]}(value)
             #{options[:as]} << value
           end
         SRC
-      else
-        class_eval <<-SRC
-          def add_#{options[:as]}(value)
-            Fiber.yield value
-          end
-        SRC
       end
 
-      unless options[:lazy]
-        class_eval <<-SRC if !instance_methods.include?(options[:as].to_s)
-          def #{options[:as]}
-            @#{options[:as]} ||= []
-          end
-        SRC
-      else
+      if options[:lazy]
         class_eval <<-SRC
           def #{options[:as]}
             @#{options[:as]} ||= Enumerator.new do |yielderr|
-              while r = @parser.resume
-                yielderr << r
+              while r = lazy_queue.pop
+                raise r[:exception] if r[:exception]
+                yielderr << r[:value]
               end
             end
+          end
+        SRC
+      else
+        class_eval <<-SRC if !instance_methods.include?(options[:as].to_s)
+          def #{options[:as]}
+            @#{options[:as]} ||= []
           end
         SRC
       end
