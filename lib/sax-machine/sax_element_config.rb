@@ -1,23 +1,23 @@
 module SAXMachine
   class SAXConfig
-    
+
     class ElementConfig
       attr_reader :name, :setter, :data_class, :collection
-      
+
       def initialize(name, options)
         @name = name.to_s
-        
+
         if options.has_key?(:with)
           @with = options[:with].to_a.map {|(k,v)| [k.to_s, v.to_s] }
         end
-        
+
         if options.has_key?(:value)
           @value = options[:value].to_s
         end
-        
+
         @as = options[:as]
         @collection = options[:collection]
-        
+
         if @collection
           @setter = "add_#{options[:as]}"
         else
@@ -48,7 +48,7 @@ module SAXMachine
           pair.last
         end
       end
-      
+
       def attrs_match?(attrs)
         return true unless @with
 
@@ -58,15 +58,15 @@ module SAXMachine
           end
         end
       end
-      
+
       def has_value_and_attrs_match?(attrs)
         !@value.nil? && attrs_match?(attrs)
       end
-      
+
       def collection?
         @collection
       end
     end
-    
+
   end
 end

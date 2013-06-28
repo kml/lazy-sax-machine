@@ -274,7 +274,7 @@ describe "SAXMachine" do
           document.first.should == "foo value"
           document.second.should == "bar value"
         end
-        
+
         it "should parse both the attribute on the node and make the inner text available through the :inner_text method on the class instance" do
           class Bar
             include SAXMachine
@@ -470,8 +470,8 @@ describe "SAXMachine" do
         document.entries.first.title.should == "paul"
         document.entries.first.url.should == "http://pauldix.net"
       end
-      
-      it "should parse out an attribute value from the tag when not collection" do        
+
+      it "should parse out an attribute value from the tag when not collection" do
         class Foo
           include SAXMachine
           attribute :href, :as => :url
@@ -480,7 +480,7 @@ describe "SAXMachine" do
           include SAXMachine
           element :entry, :class => Foo
         end
-        
+
         document = @klass.parse("<xml><entry href='http://pauldix.net'><title>paul</title></entry></xml>")
         document.entry.title.should == "paul"
         document.entry.url.should == "http://pauldix.net"

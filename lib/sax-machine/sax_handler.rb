@@ -25,7 +25,7 @@ module SAXMachine
     def start_element(name, attrs = [])
       object, config, _ = stack.last
       sax_config = object.class.respond_to?(:sax_config) ? object.class.sax_config : nil
-        
+
       if sax_config
         if collection_config = sax_config.collection_config(name, attrs)
           stack.push [object = collection_config.data_class.new, collection_config]

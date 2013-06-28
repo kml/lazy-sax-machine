@@ -6,18 +6,18 @@ require "sax-machine/sax_collection_config"
 module SAXMachine
   class SAXConfig
     attr_accessor :top_level_elements, :top_level_attributes, :top_level_element_value, :collection_elements
-    
+
     def initialize
       @top_level_elements      = {}
       @top_level_attributes    = []
       @top_level_element_value = []
       @collection_elements     = {}
     end
-    
+
     def columns
       @top_level_elements.map {|name, ecs| ecs }.flatten
     end
-    
+
     def initialize_copy(sax_config)
       @top_level_elements = sax_config.top_level_elements.clone
       @collection_elements = sax_config.collection_elements.clone
