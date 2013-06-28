@@ -5,42 +5,36 @@ module SAXMachine
     base.extend ClassMethods
   end
 
-  def parse(xml)
-    sax_handler = SAXHandler.new(self)
-    parser = Nokogiri::XML::SAX::Parser.new(sax_handler)
-
+  def with_parser
     Thread.new do
       begin
-        parser.parse(xml)
-      rescue => ex
-        lazy_queue << {exception: ex}
+        sax_handler = SAXHandler.new(self)
+        parser = Nokogiri::XML::SAX::Parser.new(sax_handler)
+        yield parser
+      rescue => exception
+        lazy_queue << {exception: exception}
       ensure
         lazy_queue << nil
       end
     end
 
     self
+  end
+
+  def parse(xml)
+    with_parser do |parser|
+      parser.parse(xml)
+    end
   end
 
   def parse_file(filename)
-    sax_handler = SAXHandler.new(self)
-    parser = Nokogiri::XML::SAX::Parser.new(sax_handler)
-
-    Thread.new do
-      begin
-        parser.parse_file(filename)
-      rescue => ex
-        lazy_queue << {exception: ex}
-      ensure
-        lazy_queue << nil
-      end
+    with_parser do |parser|
+      parser.parse_file(filename)
     end
-
-    self
   end
 
   def lazy_queue
-   @lazy_queue ||= SizedQueue.new(1)
+    @lazy_queue ||= SizedQueue.new(1)
   end
 
   module ClassMethods
@@ -109,21 +103,19 @@ module SAXMachine
         sax_config.add_top_level_element(name, options.merge(:collection => true))
       end
 
+      define_accessors(options)
+
+      attr_writer options[:as] unless instance_methods.include?("#{options[:as]}=".to_sym)
+    end
+
+    def define_accessors(options)
       if options[:lazy]
         class_eval <<-SRC
           def add_#{options[:as]}(value)
             lazy_queue << {value: value}
           end
         SRC
-      else
-        class_eval <<-SRC
-          def add_#{options[:as]}(value)
-            #{options[:as]} << value
-          end
-        SRC
-      end
 
-      if options[:lazy]
         class_eval <<-SRC
           def #{options[:as]}
             @#{options[:as]} ||= Enumerator.new do |yielderr|
@@ -134,15 +126,21 @@ module SAXMachine
             end
           end
         SRC
-      else
-        class_eval <<-SRC if !instance_methods.include?(options[:as].to_s)
-          def #{options[:as]}
-            @#{options[:as]} ||= []
-          end
-        SRC
+
+        return
       end
 
-      attr_writer options[:as] unless instance_methods.include?("#{options[:as]}=".to_sym)
+      class_eval <<-SRC
+        def add_#{options[:as]}(value)
+          #{options[:as]} << value
+        end
+      SRC
+
+      class_eval <<-SRC if !instance_methods.include?(options[:as].to_s)
+        def #{options[:as]}
+          @#{options[:as]} ||= []
+        end
+      SRC
     end
 
     def sax_config
