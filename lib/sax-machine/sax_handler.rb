@@ -23,6 +23,7 @@ module SAXMachine
     end
 
     def start_element(name, attrs = [])
+      name = name.downcase
       object, config, _ = stack.last
       sax_config = object.class.respond_to?(:sax_config) ? object.class.sax_config : nil
 
@@ -55,6 +56,7 @@ module SAXMachine
     end
 
     def end_element(name)
+      name = name.downcase
       (object, tag_config, _), (element, config, value) = stack[-2..-1]
       return unless stack.size > 1 && config && config.name == name
       stack.pop
