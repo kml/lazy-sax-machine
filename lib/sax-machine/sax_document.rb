@@ -6,6 +6,8 @@ module SAXMachine
   end
 
   def with_parser
+    @lazy_queue = SizedQueue.new(1)
+
     Thread.new do
       begin
         sax_handler = SAXHandler.new(self)
@@ -34,7 +36,7 @@ module SAXMachine
   end
 
   def lazy_queue
-    @lazy_queue ||= SizedQueue.new(1)
+    @lazy_queue
   end
 
   module ClassMethods
